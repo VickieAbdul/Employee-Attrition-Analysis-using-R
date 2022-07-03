@@ -1,0 +1,338 @@
+---
+title: "Employee Attrition Analysis"
+author: "Victoria J. Abdulkadir"
+date: '2022-06-28'
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This project will attempt to perform an exploratory analysis to determine the attrition rate for this organization and answer general questions which may also generate new questions. Recommendations will also be given in the end. The analysis will employ simple descriptive statistics and graphical methods so that the reader can make sense of the dataset. The data importation, cleaning, manipulation has been done using R.
+
+The focus here will be on the following factors (in no particular order):
+1. Age
+2. Salary
+3. Performance Rating
+4. Employee Engagement Survey scores
+5. Employee Satisfaction scores
+6. Termination Reasons
+
+```{r}
+# The packages needed for this project were
+library(tidyverse)
+```
+
+```{r}
+# Other packages needed were
+library(knitr)
+library(lubridate)
+library(scales)
+library(readxl)
+```
+
+```{r}
+# Importing the dataset
+HRData <- read_excel("HRDataset_v14.xlsx")
+```
+
+```{r HRData}
+#Exploring the structure and columns of the dataset. 
+str(HRData)      
+head(HRData)
+```
+```{r}
+# The number of columns on this dataset is
+ncol(HRData)
+```
+
+```{r}
+# The data set was cleaned by first removing some unwanted columns and then storing the new dataset in another data frame. Not all the variables were needed for this analysis.
+New_HR_Data <- HRData[ -c(3:9,11:13,14:15,19:21,27:28,33:35) ]
+```
+
+```{r}
+# Added a new column "Year"
+New_HR_Data$Year <- format(as.Date(New_HR_Data$DateofTermination, format="%Y-%m-%d"),"%Y")
+```
+
+```{r}
+# Added a new variable "Age" by converting the variable "DOB" to years. The end of date used was 2018-12-31 because the maximum year in the data set is 2018.
+Calculate_Age <- as.Date(New_HR_Data$'DOB')
+End_of_date   <- as.Date("2018-12-31")
+New_HR_Data$Age <- trunc((Calculate_Age %--% End_of_date) / years(1))
+```
+
+```{r}
+# Added a new column to convert the "DateofTermination" to years and rename the new variable as "LengthofStay"(LOS)
+Calculate_LOS <- as.Date(New_HR_Data$'DateofTermination')
+End_of_date   <- as.Date("2018-12-31")
+New_HR_Data$LengthofStay <- trunc((Calculate_LOS %--% End_of_date) / months(1))
+```
+
+```{r}
+# Exploring the structure and the new columns of the cleaned dataset.
+str(New_HR_Data)      
+head(New_HR_Data)
+```
+
+```{r}
+# The resulting cleaned dataset has 19 columns
+ncol(New_HR_Data)
+```
+
+```{r}
+# Determining the total number of employees.
+Total_Employees <- nrow(New_HR_Data)
+print(Total_Employees)
+```
+
+```{r}
+# Determining the gender distribution from the total number of employees
+New_HR_Data %>% count(Gender = Sex)
+```
+The organization has 176 female and 135 male employees. It is a fairly equal gender distribution.
+
+```{r echo = FALSE}
+# Graphical presentation of the gender distribution of the total employees
+ggplot((New_HR_Data %>% count(Gender = Sex)), aes(Gender, n, fill = Gender)) + geom_col() + labs(title = "Employee count by gender", y = "Count") + theme(legend.title = element_blank()) + scale_fill_discrete(labels=c("Female", "Male"))
+```
+
+```{r}
+# The number of employees per department
+No_Emp_Dept <- New_HR_Data %>% group_by(Department) %>% count(Department)
+No_Emp_Dept <- No_Emp_Dept %>% rename("No_Empls" = "n")
+print(No_Emp_Dept)
+
+```
+
+```{r echo=FALSE}
+# Comparing the number of employees by department using via chart
+ggplot(No_Emp_Dept, aes(x=Department, y=No_Empls, fill = Department)) + 
+  geom_bar(stat="identity", color='darkslategray4',fill='darkslategray4') +
+  theme(axis.text.x=element_text(angle=45, hjust=0.9)) +
+  labs(title = "Number of Employees per Department", y = "No.of Employees") 
+```
+
+The above shows that the production department has the highest number of employees in the organization.
+
+```{r}
+# Ascertaining the number of employee exits between 2010 - 2018.
+Number_of_exits <- sum(!is.na(New_HR_Data$`LengthofStay`))
+print(Number_of_exits)
+```
+
+```{r}
+# Evaluating the number of exits by employee gender.
+Exit_Category <- New_HR_Data %>% group_by(Gender = Sex) %>% summarize(No_of_exits = sum(!is.na(LengthofStay)))
+print(Exit_Category)
+```
+
+```{r echo = FALSE}
+# Plotting the chart for the exit_category by employee gender
+ggplot(Exit_Category, aes(Gender, No_of_exits, fill = Gender)) + geom_col() + labs(title = "Exit count per gender", y = "Count") + theme(legend.title = element_blank()) + scale_fill_discrete(labels=c("Female", "Male"))
+```
+
+
+A large number of female employees left the organization during the period under review compared to the male employees. 
+This result can be further explored to determine which marital status out of the male and female have the highest number of exits. 
+
+```{r}
+# Determining the number of exits by gender and marital status
+Marital_Status_Gender <- New_HR_Data %>% group_by(MaritalStatus = MaritalDesc, Gender = Sex) %>% summarize(No_of_exits = sum(!is.na(LengthofStay)))
+print(Marital_Status_Gender)
+```
+
+```{r echo = FALSE}
+ggplot(Marital_Status_Gender, aes(MaritalStatus, No_of_exits, fill = Gender)) + geom_bar(position = "dodge", stat = "identity") + labs(title = "Number of Exits", subtitle = "Based on marital status and gender", x = "Marital Status", y= "count") + theme(legend.title = element_blank()) + scale_fill_discrete(labels=c("Female", "Male"))
+```
+
+The chart shows that female married employees have the highest number of exits for the period under review, while the lowest number was from the female separated group.
+
+```{r}
+# Viewing the number of employees that exited each year per department
+Exits_Per_Dept <- New_HR_Data %>% group_by(Year) %>% filter(!any (is.na (Year))) %>% count(Department)
+Exits_Per_Dept <- Exits_Per_Dept %>% rename("Exits" = "n")
+print(Exits_Per_Dept)
+```
+
+```{r echo = FALSE}
+#Examining the exit trend via chart
+ggplot(Exits_Per_Dept, aes(Year, Exits, group = Department, color = Department)) + geom_line() + theme(axis.text.x=element_text(angle=45, hjust=0.9)) +
+labs(title = "Exit trend", subtitle = "Between 2010 and 2018", y = "Number of exits") +  scale_color_manual(values = c("blue4", "chocolate1", "gray37", "goldenrod4", "green3")) + theme(legend.key.size = unit(0.2, "cm"))
+```
+
+
+For the period under review, the production department experienced the highest labor turnover. The peak of the exit was in 2016 and it dropped sharply in 2017 but began to rise gradually again in 2018.
+
+```{r}
+# Tabulating the termination reasons based on departments
+table(New_HR_Data$TermReason, New_HR_Data$Department)
+```
+The termination reasons summary above shows that the employees from the production department who left the organization had reasons like "another position", "more money", and "unhappy"(17, 11, 14 respectively) topping the list, among other reasons.
+
+```{r}
+# Calculating the organization's attrition rate.
+Attrition_rate <- (Number_of_exits / Total_Employees)
+Attrition_rate <-  percent(Attrition_rate, accuracy = 0.1)
+print(Attrition_rate)
+```
+
+```{r}
+# Number of employees, exits and attrition rate per department
+Dept_Attrition_Summary <- New_HR_Data %>% group_by(Department) %>% summarize(No_Empl = n(), No_of_exits = sum(!is.na(LengthofStay)))
+Dept_Attrition_Summary$Attrition_Percentage <- with(Dept_Attrition_Summary, round((No_of_exits/No_Empl) * 100, digits = 1))
+print(Dept_Attrition_Summary)
+```
+We can see from the table above that the departments with attrition rates above the general attrition rate of 33.4% are the production and software engineering departments. The production department took the lead with an attrition rate of 39.7%. This is very high compared to the general attrition rate.
+
+```{r}
+# Summary of employee performance ratings
+table(New_HR_Data$PerformanceRatings)
+```
+The employee performance ratings above shows that more than half of the employees executed their duties well while a handful needed improvement. This shows that the organization has a large number of employees who are committed to their jobs.
+
+```{r}
+# Summary Statistics for the Salary
+Salary_Stats <- New_HR_Data %>% group_by(Department) %>% summarize(Min = min(Salary), Median = median(Salary), Average = mean(Salary), Stand_Dev = round(sd(Salary), digits = 2), Max = max(Salary))
+print(Salary_Stats)
+```
+The statistics summary shows that the minimum and average salary for production department is the least with values $45,046 and $59,953.55 respectively while top two salaries are found in the Executive Office and IT/IS departments with values $25,000 and $220,450 respectively. The software engineering department has the least maximum salary of $108,987. On average, employees of the IT/IS department have about $33,000 apart in salary while the software engineering has an average salary difference of about $9,500 which is the least.
+
+```{r echo = FALSE}
+ggplot(Salary_Stats,aes(Department, Average))+geom_errorbar(aes(ymin=Average-Stand_Dev,ymax=Average+Stand_Dev),width=0.2)+geom_line(group=1)+geom_point() + theme(axis.text.x=element_text(angle=45, hjust=0.9)) + labs(title = "Mean and Standard Deviation Chart", subtitle = "Salary per Department")
+```
+
+This error bar shows the spread of the employees' salaries around the mean value for each department. The lowest spread is found in the production and software departments, while the highest spread is found in the IT/IS department. The outlier here is from the executive office because the office has only one employee.
+
+```{r}
+# Summary Statistics for the employees Engagement Survey
+Eng_Surv_Stats <- New_HR_Data %>% group_by(Department) %>% summarize(Min = min(EngagementSurvey), Median = median(EngagementSurvey), Average = round(mean(EngagementSurvey), digits = 2), Max = max(EngagementSurvey))
+print(Eng_Surv_Stats)
+```
+
+The summary above shows that the employees who feel least valued are from the Sales department, followed by those in the Production department with average engagement scores of 3.82 and 4.13 respectively. The Executive Office has the highest score of 4.83.
+
+```{r}
+# Summary Statistics for the employee Satisfaction survey
+Emp_Sat_Stats <- New_HR_Data %>% group_by(Department) %>% summarize(Min = min(EmpSatisfaction), Median = median(EmpSatisfaction), Average = round(mean(EmpSatisfaction), digits = 1), Max = max(EmpSatisfaction))
+print(Emp_Sat_Stats)
+
+```
+
+The least satisfied staff surprisingly is from the Executive Office with an average employee satisfaction score of 3.0 while the highest scores are from the Software Engineering with an average score of 4.1.
+
+
+```{r}
+# # Reviewing the employees' average age
+Average_Age <- round(mean(New_HR_Data$Age), digits = 0)
+print(Average_Age)
+```
+
+From evaluation, the employees' average age is 39 years. This means the organization has more employees in aging workforce than the younger workers.
+
+```{r}
+# Summary Statistics for the Age of employees
+Age_Stats <- New_HR_Data %>% group_by(Department) %>% summarize(Min = min(Age), Median = median(Age), Average = round(mean(Age), digits = 0), Stand_Dev = round(sd(Age), digits = 0),Max = max(Age))
+print(Age_Stats)
+```
+
+The production department have the oldest and youngest employees in the organization who are 67 and 27 years old respectively while the standard deviation shows that the admin offices have the youngest employee who are 3 years apart on average. The oldest employees are found in the production and sales department with an average age difference of 9 and 11 years respectively.
+
+```{r echo=FALSE}
+ggplot(Age_Stats,aes(Department, Average))+geom_errorbar(aes(ymin=Average-Stand_Dev,ymax=Average+Stand_Dev),width=0.2)+geom_line(group=1)+geom_point() + theme(axis.text.x=element_text(angle=45, hjust=0.9)) + labs(title = "Mean and Standard Deviation Chart", subtitle = "Age per Department")
+```
+
+
+This error bar shows the spread of the employees' age around the mean value for each department. The lowest spread is found in the admin office while the highest spread is found in the sales department. Again, the outlier here is from the executive office because it has only one employee.
+
+```{r}
+# Putting together the statistics for the age, salary, employment engagement, employee satisfaction. We have the following results in their average.
+New_HR_Data %>% group_by(Department) %>% summarize(Avg_Sal=mean(Salary),Avg_Emp_Sat= round(mean(EmpSatisfaction), digits = 2), Avg_Eng_Surv = round(mean(EngagementSurvey), digits = 2), Avg_Age = round(mean(Age), digits = 0))
+```
+
+```{r echo=FALSE}
+# Exploring the data from another angle by comparing the distribution of income across departments based on gender.
+ggplot(New_HR_Data, aes(Age, Salary, color = Department, shape = Department)) + geom_jitter() + facet_wrap(~Sex) +  
+  labs(title = "Salary Distriution", subtitle = "Per department, gender, and age") + scale_color_manual(values= c("blue", "black", "gray55", "orange", "green3", "red")) + theme(legend.key.size = unit(0.2, "cm"))
+```
+
+The chart above shows that there is an equal distribution of salary accross the male and female employees within the departments. The employee with the highest salary is the executive. Also, the salary for employees in the production and sales department are within the same range notwitstanding their age with one exception in each case.Employees in the IT/IS department earn more than the others. We can reconfirm from here that the employees in the production, and sales department are the lowest paid.
+
+```{r echo=FALSE}
+# Exploring the data by comparing the distribution of income across departments based on gender and marital status.
+ggplot(New_HR_Data, aes(x = Salary)) + geom_histogram(fill = "blue", color = "black", bins = 30, binwidth = 100) +
+  facet_grid(Sex ~ MaritalDesc) + theme(axis.text.x=element_text(angle=45, hjust=0.9)) +
+  labs(title = "Employee Salary Distriution", subtitle = "Comparing employees gender and marital status with their salaries")
+```
+
+From the chart above,the highest number of employees who earn between $50,000 and $100,000 are the married and single females, followed by the married and single males.Four male employees earn salaries of about $150,000 and above while four female employees earn salaries of $150,000 and above. The rest of the employees are sparsely distributed within the groups.
+
+```{r}
+# Getting the actual number of male and female employees
+New_HR_Data %>% count(Sex)
+```
+
+```{r echo = FALSE}
+ggplot((New_HR_Data %>% count(Sex)), aes(Sex, n, fill = Sex)) + geom_col() + labs(title = "Gender of employees", x= "Gender", y = "Number") + theme (legend.title = element_blank ())
+```
+
+This dataset can be further explored by filtering it in order to discover the rate of attrition based on different categories.For example, the steps above can be repeated to determine the attrition rates for employees whose performance ratings "Exceed" or "Fully Meet" expectations or employees who are "Single" or "Married". This can be done by sub-setting from the original dataset into the category to be explored.
+
+
+```{r}
+# Sub-setting the dataset to know how many employees in the production department had performance ratings that fully met expectations but still left the organization.
+Fully_meets_Prod <- subset(New_HR_Data, PerformanceRatings == "Fully Meets" & Department == "Production")
+```
+
+```{r}
+# Determining the total number of employees in the production department whose performance ratings fully met expectations but still exited the organization
+Fully_meets_Prod %>% group_by(Department) %>% summarize(Fully_Meets = n(), Total_exits = sum(!is.na(LengthofStay)))
+
+```
+The result shows that 63 out 159 employees in the production department left the organization despite fully meeting their work performance ratings. This shows that they are not satisfied with their jobs.
+
+
+
+
+
+Conclusion:
+
+The analysis shows that employees are committed and dedicated to the organization but are not satisfied with their jobs or work environment. The job discontentment is having a toll on this organization. The recommendations below will go a long way to foster employee satisfaction and retention in this organization.
+
+
+
+
+Recommendations:
+
+1.  There should be a pay rise implementation for the employees in the production and sales departments. The data shows that they are satisfied with the company culture and would like to continue working with them but they are the least paid compared to the other Departments.
+2.   Adequate support for the ageing workforce is required. This can done by ensuring that policies are in place to support their health and well-being. Appropriate retirement plans should also be put in place for those that may be considering retirement.
+3.   HR should urgently begin recruitment to replace the employees who left so as to avoid overworking the ones left. 
+4.   All standard and non-standard workers should have career growth opportunities for them by providing a realistic path with calculated steps they can take to earn new roles.
+5.   Company policies should be reviewed in general for all employees. Although Hr policies should be gender neutral, it is obvious from our analysis that the married female employees have the highest number of exits. There may be a policy or two that would need adjustment in order to improve the work-life balance of these set of employees. 
+6.   The holder of the Executive Office should be counselled to know why they are the least content with their job even though they are the most committed. This is important because it is the company’s executive that should motivate other employees and establish a great work place culture.
+
+
+
+
+
+
+This is my first project in R and I am hoping that I was able to do justice to the dataset.
+As stated earlier, this dataset can be further broken down to explore other factors but I have tried my best to stay within the objectives of the analysis without digressing.
+Thank you for taking your time to read.
+
+
+
+
+
+
+
+The dataset provided for this project is entirely fictional and was only used to demonstrate my budding skills in R. The dataset was downloaded from Kaggle: https://www.kaggle.com/datasets/rhuebner/human-resources-data-set where the owner allowed its download and usage by all.
+
+
