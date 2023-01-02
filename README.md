@@ -13,4 +13,4 @@ The focus here will be on the following factors (in no particular order):
 5. Employee Satisfaction scores
 6. Termination Reasons
 
-Data cleaning, manipulation and analysis were executed using R programming.
+Data cleaning, manipulation, analysis, and visualizations were executed using R programming.
