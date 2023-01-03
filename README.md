@@ -1,4 +1,4 @@
-The dataset used for this project is entirely fictional and was only used to demonstrate my budding skills in R. The dataset was downloaded from Kaggle: https://www.kaggle.com/datasets/rhuebner/human-resources-data-set where the user allowed its download and usage by all.
+Note: The dataset used for this project is entirely fictional and was only used to demonstrate my budding skills in R. The dataset was downloaded from Kaggle: https://www.kaggle.com/datasets/rhuebner/human-resources-data-set where the user allowed its download and usage by all.
 
 # Employee-Attrition-Analysis-using-R
 
